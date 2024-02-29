@@ -25,24 +25,17 @@ public:
 };
 
 template<typename KeyType, typename ValueType>
-inline Node<KeyType, ValueType>::Node(const KeyType key, const ValueType value, int node_level) {
+inline Node<KeyType, ValueType>::Node(const KeyType key, const ValueType value, int level) {
     this->key = key;
     this->value = value;
-    this->node_level = node_level;
-    this->pointer = new Node<KeyType, ValueType> *[node_level + 1];
-    memset(this->pointer, 0, sizeof(Node<KeyType, ValueType> *) * (node_level + 1));
+    this->node_level = level;
+    this->pointer = new Node<KeyType, ValueType> *[level + 1];
+    memset(this->pointer, 0, sizeof(Node<KeyType, ValueType> *) * (level + 1));
 }
 
 template<typename KeyType, typename ValueType>
 inline Node<KeyType, ValueType>::~Node() {
-    for (int i = 0; i <= node_level; ++i) {
-        if (pointer[i] != nullptr) {
-            delete[] pointer[i];
-            pointer[i] = nullptr;
-        }
-    }
     delete[] pointer;
-    pointer = nullptr;
 }
 
 template<typename KeyType, typename ValueType>
