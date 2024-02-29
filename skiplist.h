@@ -31,28 +31,27 @@ public:
 
     Node<KeyType, ValueType> *create_new_node(KeyType, ValueType, int);     // 创建一个新节点
 
-    int insert_element(KeyType, ValueType);     // 向 Skiplist 中添加指定键值对
+    int insert_element(KeyType, ValueType, bool = false);     // 向 Skiplist 中添加指定键值对
 
-    bool search_element(KeyType);   // 在 Skiplist 中查询指定键是否存在
+    bool search_element(KeyType, bool = false);   // 在 Skiplist 中查询指定键是否存在
 
     ValueType get_element(KeyType);   // 在 Skiplist 中获取指定键对应的值
 
-    int remove_element(KeyType);    // 从 Skiplist 中移除指定键与其对应的值
+    int remove_element(KeyType, bool = false);    // 从 Skiplist 中移除指定键与其对应的值
 
     void display();     // 展示 Skiplist 中的所有键值对
 
     int size();         // 获取当前 Skiplist 的长度
 
-    void read_from_file(std::string);   // 从指定文件中读入整个 Skiplist
+//    void read_from_file(std::string);   // 从指定文件中读入整个 Skiplist
 
-    void write_to_file(std::string);    // 向指定文件中写入整个 Skiplist
+//    void write_to_file(std::string);    // 向指定文件中写入整个 Skiplist
 };
 
 
 template<typename KeyType, typename ValueType>
 int Skiplist<KeyType, ValueType>::generate_random_level() {
     int result = 1;
-    srand(time(nullptr));
     while (rand() % 2) {
         result++;
         if (result == max_level)
@@ -69,6 +68,7 @@ inline Skiplist<KeyType, ValueType>::Skiplist(int max_level) {
     KeyType key;
     ValueType value;
     this->head = new Node<KeyType, ValueType>(key, value, max_level);
+    srand(time(nullptr));
 }
 
 template<typename KeyType, typename ValueType>
@@ -93,9 +93,8 @@ Skiplist<KeyType, ValueType>::create_new_node(const KeyType key, const ValueType
 }
 
 template<typename KeyType, typename ValueType>
-inline int Skiplist<KeyType, ValueType>::insert_element(const KeyType key, const ValueType value) {
+inline int Skiplist<KeyType, ValueType>::insert_element(const KeyType key, const ValueType value, bool out) {
     mut.lock();
-    int level = generate_random_level();
     Node<KeyType, ValueType> *current = this->head;
     Node<KeyType, ValueType> *insert_location[max_level + 1];
     memset(insert_location, 0, sizeof(Node<KeyType, ValueType> *) * (max_level + 1));
@@ -110,14 +109,14 @@ inline int Skiplist<KeyType, ValueType>::insert_element(const KeyType key, const
 
     // Key 已在 Skiplist 中存在，返回 1
     if (current != NULL && current->get_key() == key) {
-        std::cout << "键 " << current->get_key() << " 已存在" << std::endl;
+        if (out)
+            std::cout << "键 " << current->get_key() << " 已存在" << std::endl;
         mut.unlock();
         return 1;
     }
 
     // Key 不冲突，生成随机插入层数，此时 current == NULL || current->get_key() != key
     int random_level = generate_random_level();
-    std::cout << random_level << std::endl;
     // 若生成的随机插入层数比当前层数还大，说明 Skiplist 需要增加对应的层数，将每层的头节点设置为 head
     /*
      Level 3    3 (新层，把添加位置的前一位设置为head)
@@ -142,23 +141,26 @@ inline int Skiplist<KeyType, ValueType>::insert_element(const KeyType key, const
     }
 
     node_count++;
-    std::cout << "键值对 " << insert_node->get_key() << " : " << insert_node->get_value() << " 已插入" << std::endl;
+    if (out)
+        std::cout << "键值对 " << insert_node->get_key() << " : " << insert_node->get_value() << " 已插入" << std::endl;
     mut.unlock();
     return 0;
 }
 
 template<typename KeyType, typename ValueType>
-bool Skiplist<KeyType, ValueType>::search_element(KeyType key) {
+bool Skiplist<KeyType, ValueType>::search_element(KeyType key, bool out) {
     Node<KeyType, ValueType> *current = head;
     for (int i = current_level; i >= 0; i--)
         while (current->pointer[i] != NULL && current->pointer[i]->get_key() < key)
             current = current->pointer[i];
     current = current->pointer[0];
     if (current != NULL && current->get_key() == key) {
-        std::cout << "找到键 " << key << " 对应的值为 " << current->get_value() << std::endl;
+        if (out)
+            std::cout << "找到键 " << key << " 对应的值为 " << current->get_value() << std::endl;
         return true;
     }
-    std::cout << "未找到键 " << key << std::endl;
+    if (out)
+        std::cout << "未找到键 " << key << std::endl;
     return false;
 }
 
@@ -176,7 +178,7 @@ ValueType Skiplist<KeyType, ValueType>::get_element(KeyType key) {
 }
 
 template<typename KeyType, typename ValueType>
-int Skiplist<KeyType, ValueType>::remove_element(KeyType key) {
+int Skiplist<KeyType, ValueType>::remove_element(KeyType key, bool out) {
     mut.lock();
     Node<KeyType, ValueType> *current = this->head;
     Node<KeyType, ValueType> *delete_location[max_level + 1];
@@ -195,10 +197,10 @@ int Skiplist<KeyType, ValueType>::remove_element(KeyType key) {
         }
         while (current_level > 0 && head->pointer[current_level] == NULL)
             current_level--;
-        std::cout << "已删除键为 " << key << " 的数据" << std::endl;
+        if (out)
+            std::cout << "已删除键为 " << key << " 的数据" << std::endl;
         if (current != NULL)
             delete current;
-        std::cout << "1" << std::endl;
         node_count--;
     }
     mut.unlock();
@@ -207,22 +209,20 @@ int Skiplist<KeyType, ValueType>::remove_element(KeyType key) {
 
 template<typename KeyType, typename ValueType>
 void Skiplist<KeyType, ValueType>::display() {
-
+    for (int i = 0; i <= current_level; i++) {
+        Node<KeyType, ValueType> *node = this->head->pointer[i];
+        std::cout << "Level " << i << " : ";
+        while (node != NULL) {
+            std::cout << node->get_key() << ":" << node->get_value() << "; ";
+            node = node->pointer[i];
+        }
+        std::cout << std::endl;
+    }
 }
 
 template<typename KeyType, typename ValueType>
 int Skiplist<KeyType, ValueType>::size() {
     return node_count;
-}
-
-template<typename KeyType, typename ValueType>
-void Skiplist<KeyType, ValueType>::read_from_file(std::string) {
-
-}
-
-template<typename KeyType, typename ValueType>
-void Skiplist<KeyType, ValueType>::write_to_file(std::string) {
-
 }
 
 #endif
